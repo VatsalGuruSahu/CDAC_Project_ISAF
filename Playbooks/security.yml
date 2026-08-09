@@ -1,0 +1,149 @@
+---
+- name: Collect System Information and Firewall Status
+  hosts: all
+  become: yes
+  gather_facts: yes
+
+  vars:
+    report_dir: "/tmp/isaf"
+
+  tasks:
+
+    #####################################################
+    # Create Report Directory
+    #####################################################
+
+    - name: Create report directory
+      file:
+        path: "{{ report_dir }}"
+        state: directory
+        mode: "0755"
+
+    #####################################################
+    # System Information
+    #####################################################
+
+    - name: Get uptime
+      shell: "uptime -p"
+      register: uptime
+      changed_when: false
+
+    - name: Save system information
+      copy:
+        dest: "{{ report_dir }}/systeminfo.json"
+        content: |
+          {
+            "hostname": "{{ ansible_hostname }}",
+            "os": "{{ ansible_distribution }} {{ ansible_distribution_version }}",
+            "cpu_cores": {{ ansible_processor_vcpus }},
+            "ram_mb": {{ ansible_memtotal_mb }},
+            "disk_total_gb": {{ (ansible_mounts[0].size_total / 1073741824) | round(2) }},
+            "ip": "{{ ansible_default_ipv4.address }}",
+            "uptime": "{{ uptime.stdout }}"
+          }
+
+    #####################################################
+    # Firewall
+    #####################################################
+
+    - name: Check if UFW is installed
+      shell: "command -v ufw"
+      register: ufw_install
+      ignore_errors: yes
+      changed_when: false
+
+    - name: Get firewall status (verbose)
+      shell: "ufw status verbose"
+      register: ufw_status
+      ignore_errors: yes
+      changed_when: false
+
+    - name: Get allowed ports
+      shell: "ufw status | grep ALLOW"
+      register: allowed_ports
+      ignore_errors: yes
+      changed_when: false
+
+    - name: Save firewall information
+      copy:
+        dest: "{{ report_dir }}/firewall.json"
+        content: |
+          {
+            "installed": {{ (ufw_install.rc == 0) | lower }},
+            "status": "{{ ufw_status.stdout_lines[0] if ufw_status.stdout_lines else 'inactive' }}",
+            "allowed_ports": {{ allowed_ports.stdout_lines | to_json }}
+          }
+
+    
+    ###########################################################
+    # FAIL2BAN
+    ###########################################################
+
+    - name: Check if Fail2Ban is installed
+      shell: command -v fail2ban-client
+      register: fail2ban_install
+      ignore_errors: yes
+      changed_when: false
+
+    - name: Check Fail2Ban service status
+      shell: systemctl is-active fail2ban
+      register: fail2ban_status
+      ignore_errors: yes
+      changed_when: false
+
+    - name: Read Fail2Ban configuration
+      shell: cat /etc/fail2ban/jail.local
+      register: jail_local
+      ignore_errors: yes
+      changed_when: false
+
+    - name: Extract Ban Time
+      shell: "grep '^bantime' /etc/fail2ban/jail.local | head -n 1 | awk -F'= ' '{print $2}'"
+      register: bantime
+      ignore_errors: yes
+      changed_when: false
+
+    - name: Extract Find Time
+      shell: "grep '^findtime' /etc/fail2ban/jail.local | head -n 1| awk -F'= ' '{print $2}'"
+      register: findtime
+      ignore_errors: yes
+      changed_when: false
+
+    - name: Extract Max Retry
+      shell: "grep '^maxretry' /etc/fail2ban/jail.local | head -n 1 | awk -F'= ' '{print $2}'"
+      register: maxretry
+      ignore_errors: yes
+      changed_when: false
+
+    - name: Save Fail2Ban information
+      copy:
+        dest: "{{ report_dir }}/fail2ban.json"
+        content: |
+          {
+            "installed": {{ (fail2ban_install.rc == 0) | lower }},
+            "status": "{{ fail2ban_status.stdout | default('inactive') }}",
+            "bantime": "{{ bantime.stdout | default('N/A') }}",
+            "findtime": "{{ findtime.stdout | default('N/A') }}",
+            "maxretry": "{{ maxretry.stdout | default('N/A') }}"
+          }
+    #####################################################
+    # Fetch Reports
+    #####################################################
+
+    - name: Fetch systeminfo.json
+      fetch:
+        src: "{{ report_dir }}/systeminfo.json"
+        dest: "{{playbook_dir}}/../results/{{ inventory_hostname }}/"
+        flat: yes
+
+    - name: Fetch firewall.json
+      fetch:
+        src: "{{ report_dir }}/firewall.json"
+        dest: "{{playbook_dir}}/../results/{{ inventory_hostname }}/"
+        flat: yes
+
+    - name: Fetch Fail2Ban information
+      fetch:
+        src: "{{ report_dir }}/fail2ban.json"
+        dest: "{{ playbook_dir }}/../results/{{ inventory_hostname }}/"
+        flat: yes

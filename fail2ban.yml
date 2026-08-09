@@ -1,0 +1,85 @@
+---
+- name: Configure Fail2Ban on Ubuntu Nodes
+  hosts: all
+  become: yes
+  gather_facts: no
+
+  tasks:
+
+    ###########################################################
+    # Update Package Cache
+    ###########################################################
+
+    - name: Update package repository
+      apt:
+        update_cache: yes
+
+    ###########################################################
+    # Install Fail2Ban
+    ###########################################################
+
+    - name: Install Fail2Ban
+      apt:
+        name: fail2ban
+        state: present
+
+    ###########################################################
+    # Enable and Start Service
+    ###########################################################
+
+    - name: Enable and start Fail2Ban
+      systemd:
+        name: fail2ban
+        enabled: yes
+        state: started
+
+    ###########################################################
+    # Create jail.local
+    ###########################################################
+
+    - name: Create Fail2Ban local configuration
+      copy:
+        dest: /etc/fail2ban/jail.local
+        owner: root
+        group: root
+        mode: "0644"
+        content: |
+          [DEFAULT]
+          bantime = 1m
+          findtime = 10m
+          maxretry = 3
+
+          [sshd]
+          enabled = true
+          port = ssh
+          filter = sshd
+          logpath = /var/log/auth.log
+          backend = systemd
+          maxretry = 3
+      notify: Restart Fail2Ban
+
+    ###########################################################
+    # Verify Service
+    ###########################################################
+
+    - name: Check Fail2Ban status
+      command: systemctl is-active fail2ban
+      register: fail2ban_status
+      changed_when: false
+
+    - name: Display Fail2Ban status
+      debug:
+        msg:
+          - "Node: {{ inventory_hostname }}"
+          - "Fail2Ban Status: {{ fail2ban_status.stdout }}"
+
+  ###########################################################
+  # Handlers
+  ###########################################################
+
+  handlers:
+
+    - name: Restart Fail2Ban
+      systemd:
+        name: fail2ban
+        state: restarted

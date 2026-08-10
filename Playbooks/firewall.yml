@@ -1,0 +1,68 @@
+---
+- name: Configure Firewall
+  hosts: all
+  become: yes
+  gather_facts: no
+
+  tasks:
+
+    ###########################################################
+    # Install UFW
+    ###########################################################
+
+    - name: Install UFW
+      apt:
+        name: ufw
+        state: present
+        update_cache: yes
+
+    ###########################################################
+    # Allow Required Ports
+    ###########################################################
+
+    - name: Allow SSH
+      ufw:
+        rule: allow
+        port: "22"
+        proto: tcp
+
+    - name: Allow HTTP
+      ufw:
+        rule: allow
+        port: "80"
+        proto: tcp
+
+    - name: Allow HTTPS
+      ufw:
+        rule: allow
+        port: "443"
+        proto: tcp
+
+    ###########################################################
+    # Enable Firewall
+    ###########################################################
+
+    - name: Enable UFW
+      ufw:
+        state: enabled
+
+    ###########################################################
+    # Reload Firewall
+    ###########################################################
+
+    - name: Reload UFW
+      command: ufw reload
+      changed_when: false
+
+    ###########################################################
+    # Show Status
+    ###########################################################
+
+    - name: Show Firewall Status
+      command: ufw status verbose
+      register: firewall_status
+      changed_when: false
+
+    - name: Display Firewall Status
+      debug:
+        var: firewall_status.stdout_lines

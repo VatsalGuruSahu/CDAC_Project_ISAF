@@ -78,7 +78,7 @@ ssh -V
 Go to the project directory:
 
 ```bash
-cd ~/CDAC_Project_ISAF
+cd ~/CDAC_Project
 ```
 
 Create a Python virtual environment:
@@ -96,7 +96,7 @@ source venv/bin/activate
 After activation, the terminal should show something similar to:
 
 ```text
-(venv) user@admin:~/CDAC_Project_ISAF$
+(venv) user@admin:~/CDAC_Project$
 ```
 
 Upgrade pip:
@@ -285,7 +285,7 @@ If both clients return `SUCCESS`, the Admin computer can communicate with both c
 Make sure the virtual environment is active:
 
 ```bash
-cd ~/CDAC_Project_ISAF
+cd ~/CDAC_Project
 source venv/bin/activate
 ```
 

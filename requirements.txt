@@ -1,7 +1,9 @@
-vim
-python3
 ansible
-streamlit
 openssh-client
 openssh-server
 pip
+python3
+streamlit
+vim
+
+
